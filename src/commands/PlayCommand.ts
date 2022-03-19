@@ -102,11 +102,18 @@ export class PlayCommand extends BaseCommand {
         restPlaylist = false
     ): Promise<any> {
         // NOTE: handleVideo function can only add YouTube videos, for now.
+        let duration = 0;
+
+        if (resource instanceof Video || resource instanceof VideoCompact) {
+            duration = resource.duration ?? 0;
+        }
+
         const metadata = {
             id: resource.id,
             thumbnail: resource.thumbnails.best!,
             title: PlayCommand.cleanTitle(resource.title),
-            url: PlayCommand.generateYouTubeURL(resource.id, "video")
+            url: PlayCommand.generateYouTubeURL(resource.id, "video"),
+            duration
         };
         const addedTrackMsg = (): void => {
             message.channel.send({
@@ -326,6 +333,7 @@ export class PlayCommand extends BaseCommand {
                     return undefined;
                 }
                 return this.selectNextVideo(videos, message, videoIndex + 1);// Pass to the next video from search.
+                // eslint-disable-next-line max-lines
             });
     }
 
@@ -333,7 +341,6 @@ export class PlayCommand extends BaseCommand {
         return Util.escapeMarkdown(decodeHTML(title));
     }
 
-    // eslint-disable-next-line max-lines
     private static generateYouTubeURL(id: string, type: "playlist" | "video"): string {
         return type === "video" ? `https://youtube.com/watch?v=${id}` : `https://youtube.com/playlist?list=${id}`;
     }
