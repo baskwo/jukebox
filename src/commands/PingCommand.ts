@@ -3,7 +3,7 @@ import { ColorResolvable, Message, MessageEmbed } from "discord.js";
 import { DefineCommand } from "../utils/decorators/DefineCommand";
 
 @DefineCommand({
-    aliases: ["pong", "peng", "p", "pingpong"],
+    aliases: ["pong", "peng", "pingpong"],
     name: "ping",
     description: lang => lang.COMMAND_PING_META_DESCRIPTION(),
     usage: () => "{prefix}ping"
