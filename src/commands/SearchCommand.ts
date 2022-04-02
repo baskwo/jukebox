@@ -1,5 +1,14 @@
 import { joinVoiceChannel } from "@discordjs/voice";
-import { Message, StageChannel, TextChannel, Util, VoiceChannel, Collection, Snowflake, MessageOptions } from "discord.js";
+import {
+    Collection,
+    Message,
+    MessageOptions,
+    Snowflake,
+    StageChannel,
+    TextChannel,
+    Util,
+    VoiceChannel
+} from "discord.js";
 import { decodeHTML } from "entities";
 import { URL } from "url";
 import { Client, LiveVideo, MixPlaylist, Playlist, Video, VideoCompact } from "youtubei";
@@ -14,12 +23,12 @@ import { DefineCommand } from "../utils/decorators/DefineCommand";
 import { isSameVoiceChannel, isUserInTheVoiceChannel, isValidVoiceChannel } from "../utils/decorators/MusicHelper";
 
 @DefineCommand({
-    aliases: ["play-music", "add", "p"],
-    name: "play",
+    aliases: ["search", "s"],
+    name: "search",
     description: lang => lang.COMMAND_PLAY_META_DESCRIPTION(),
     usage: lang => `{prefix}play <${lang.COMMAND_PLAY_META_ARGS(0)}>`
 })
-export class PlayCommand extends BaseCommand {
+export class SearchCommand extends BaseCommand {
     private readonly youtubeHostnames = ["youtu.be", "youtube.com", "www.youtube.com", "music.youtube.com"];
     private readonly youtube = new Client();
     private readonly playlistAlreadyQueued: Collection<Snowflake, ITrackMetadata[]> = new Collection();
@@ -37,7 +46,7 @@ export class PlayCommand extends BaseCommand {
         }
 
         const searchString = args.join(" ");
-        const parsedUrl = PlayCommand.getURL(searchString);
+        const parsedUrl = SearchCommand.getURL(searchString);
         // eslint-disable-next-line @typescript-eslint/no-non-null-asserted-optional-chain
         const youtubeURL = this.youtubeHostnames.includes(parsedUrl?.hostname!) ? parsedUrl : undefined;
 
@@ -111,8 +120,8 @@ export class PlayCommand extends BaseCommand {
         const metadata = {
             id: resource.id,
             thumbnail: resource.thumbnails.best!,
-            title: PlayCommand.cleanTitle(resource.title),
-            url: PlayCommand.generateYouTubeURL(resource.id, "video"),
+            title: SearchCommand.cleanTitle(resource.title),
+            url: SearchCommand.generateYouTubeURL(resource.id, "video"),
             duration
         };
         const addedTrackMsg = (): void => {
@@ -174,7 +183,7 @@ export class PlayCommand extends BaseCommand {
             return message.channel.send({ embeds: [createEmbed("error", this.client.lang.COMMAND_PLAY_YOUTUBE_RD_PLAYLIST_NOT_SUPPORTED())] });
         }
 
-        const playlistTitle = `**[${playlist.title}](${PlayCommand.generateYouTubeURL(playlist.id, "playlist")})**`;
+        const playlistTitle = `**[${playlist.title}](${SearchCommand.generateYouTubeURL(playlist.id, "playlist")})**`;
 
         let addingPlaylistVideoMessage;
         let successMsg = this.client.lang.COMMAND_PLAY_YOUTUBE_PLAYLIST_SUCCESS(playlistTitle);
@@ -188,7 +197,7 @@ export class PlayCommand extends BaseCommand {
 
         if (watchEndpoint) {
             const { metadata } = message.guild!.queue!.tracks.first()!;
-            const videoTitle = `**[${metadata.title}](${PlayCommand.generateYouTubeURL(metadata.id, "video")})**`;
+            const videoTitle = `**[${metadata.title}](${SearchCommand.generateYouTubeURL(metadata.id, "video")})**`;
 
             addingPlaylistVideoMessage = await message.channel.send(
                 generateMessage(this.client.lang.COMMAND_PLAY_YOUTUBE_PLAYLIST_ADDING_VIDEOS_FROM(videoTitle, playlistTitle), "info")
@@ -230,7 +239,7 @@ export class PlayCommand extends BaseCommand {
         const alreadyQueued = this.playlistAlreadyQueued.get(message.guild!.id) ?? [];
         if (alreadyQueued.length !== 0) {
             let num = 1;
-            const tracks = alreadyQueued.map(t => `**${num++}.** **[${t.title}](${PlayCommand.generateYouTubeURL(t.id, "video")})**`);
+            const tracks = alreadyQueued.map(t => `**${num++}.** **[${t.title}](${SearchCommand.generateYouTubeURL(t.id, "video")})**`);
             message.channel.send({
                 embeds: [createEmbed("warn", this.client.lang.COMMAND_PLAY_ALREADY_QUEUED_MSG2(alreadyQueued.length, message.client.config.prefix))]
             }).catch(e => this.client.logger.error(e));
@@ -276,21 +285,48 @@ export class PlayCommand extends BaseCommand {
             return undefined;
         }
 
-        return this.selectNextVideo(videos, message);
-    }
+        let index = 0;
+        const videosSliced = videos.slice(0, this.client.config.searchMaxResults);
+        const msg = await message.channel.send({
+            embeds: [
+                createEmbed("info")
+                    .setAuthor({ name: this.client.lang.COMMAND_PLAY_YOUTUBE_SEARCH_RESULTS_EMBED_TITLE() })
+                    .setDescription(
+                        `${videosSliced.map(video => `**${++index} -** ${SearchCommand.cleanTitle(video.title)}`).join("\n")}\n` +
+                        `*${this.client.lang.COMMAND_PLAY_YOUTUBE_SEARCH_RESULTS_CANCEL_MSG()}*`
+                    )
+                    .setThumbnail(message.client.user!.displayAvatarURL())
+                    .setFooter({ text: this.client.lang.COMMAND_PLAY_YOUTUBE_SEARCH_RESULTS_EMBED_FOOTER(videosSliced.length) })
+            ]
+        });
 
-    private async selectNextVideo(videos: VideoCompact[], message: Message, videoIndex = 0): Promise<LiveVideo | Video | "canceled" | undefined> {
-        return this.youtube.getVideo(videos[videoIndex].id)
-            .catch(err => { // Possible private/doesn't exist/age restricted video
-                const error = err as Error;
-                this.client.logger.error(error); // log error for traceability
-                if (videos.length === videoIndex + 1) { // if last video in search result
-                    void message.channel.send({ embeds: [createEmbed("warn", this.client.lang.COMMAND_PLAY_YOUTUBE_SEARCH_NO_RESULTS())] });
-                    return undefined;
-                }
-                return this.selectNextVideo(videos, message, videoIndex + 1);// Pass to the next video from search.
-                // eslint-disable-next-line max-lines
+        try {
+            const response = await message.channel.awaitMessages({
+                filter: msg2 => {
+                    if (msg2.author.id !== message.author.id) return false;
+                    if (msg2.content === "cancel" || msg2.content === "c") return true;
+                    return Number(msg2.content) > 0 && Number(msg2.content) < this.client.config.searchMaxResults + 1;
+                },
+                max: 1,
+                time: this.client.config.selectTimeout,
+                errors: ["time"]
             });
+            msg.delete().catch(e => this.client.logger.error(e));
+            response.first()?.delete().catch(e => e); // do nothing
+
+            if (response.first()?.content === "c" || response.first()?.content === "cancel") {
+                await message.channel.send({ embeds: [createEmbed("info", this.client.lang.COMMAND_PLAY_YOUTUBE_SEARCH_CANCELED())] });
+                return "canceled";
+            }
+
+            const videoIndex = parseInt(response.first()!.content);
+            return await this.youtube.getVideo(videos[videoIndex - 1].id);
+        } catch {
+            msg.delete().catch(e => this.client.logger.error(e));
+            message.channel.send({ embeds: [createEmbed("error", this.client.lang.COMMAND_PLAY_YOUTUBE_SEARCH_INVALID_INPUT())] })
+                .catch(e => this.client.logger.error(e));
+            return undefined;
+        }
     }
 
     private static cleanTitle(title: string): string {
@@ -298,6 +334,7 @@ export class PlayCommand extends BaseCommand {
     }
 
     private static generateYouTubeURL(id: string, type: "playlist" | "video"): string {
+        // eslint-disable-next-line max-lines
         return type === "video" ? `https://youtube.com/watch?v=${id}` : `https://youtube.com/playlist?list=${id}`;
     }
 

@@ -5,7 +5,7 @@ import { createEmbed } from "../utils/createEmbed";
 import { Message } from "discord.js";
 
 @DefineCommand({
-    aliases: ["s"],
+    aliases: ["skip"],
     name: "skip",
     description: lang => lang.COMMAND_SKIP_META_DESCRIPTION(),
     usage: () => "{prefix}skip"
