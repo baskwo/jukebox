@@ -6,6 +6,7 @@ LABEL maintainer = "Hazmi35 <contact@hzmi.xyz>"
 # Copy package.json, lockfile and .npmrc
 COPY package*.json ./
 COPY .npmrc .
+COPY ./youtubei*.tgz ./
 
 # Install FFmpeg to for testing
 RUN apk add --no-cache ffmpeg

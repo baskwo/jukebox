@@ -60,6 +60,7 @@ jspm_packages/
 
 # Output of 'npm pack'
 *.tgz
+!youtubei*.tgz
 
 # Yarn Integrity file
 .yarn-integrity
