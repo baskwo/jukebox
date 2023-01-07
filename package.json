@@ -41,8 +41,8 @@
     "strip-indent": "^3.0.0",
     "tslib": "^2.3.1",
     "tweetnacl": "^1.0.3",
-    "youtube-dl-exec": "^2.0.2",
-    "youtubei": "file:youtubei-0.0.1-rc.33.tgz"
+    "youtube-dl-exec": "^2.1.11",
+    "youtubei": "1.0.0"
   },
   "devDependencies": {
     "@hazmi35/eslint-config": "^8.1.0",

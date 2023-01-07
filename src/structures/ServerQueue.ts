@@ -71,7 +71,7 @@ export class ServerQueue {
     }
 
     public flatten(): any {
-        return Object.assign(Util.flatten(this), { playing: this.playing });
+        return Object.assign(Util.flatten(this) as object, { playing: this.playing });
     }
 
     public get volume(): number {

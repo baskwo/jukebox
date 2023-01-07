@@ -6,7 +6,6 @@ LABEL maintainer = "Hazmi35 <contact@hzmi.xyz>"
 # Copy package.json, lockfile and .npmrc
 COPY package*.json ./
 COPY .npmrc .
-COPY ./youtubei*.tgz ./
 
 # Install FFmpeg to for testing
 RUN apk add --no-cache ffmpeg
@@ -15,7 +14,7 @@ RUN apk add --no-cache ffmpeg
 ENV FFMPEG_BIN /usr/bin/ffmpeg
 
 # Install dependencies
-RUN npm install
+RUN npm install --force
 
 # Copy Project files
 COPY . .
@@ -24,7 +23,7 @@ COPY . .
 RUN npm run build
 
 # Prune devDependencies
-RUN npm prune --production
+RUN npm prune --production --force
 
 # Check if important dependencies is healthy
 RUN YOUTUBE_DL_FILENAME="yt-dlp" node -p "console.log((require('prism-media').FFmpeg).getInfo());(require('youtube-dl-exec'))('--version').then(console.log)"
@@ -51,6 +50,8 @@ COPY --from=build-stage --chown=jukebox /tmp/build/package-lock.json .
 COPY --from=build-stage --chown=jukebox /tmp/build/node_modules ./node_modules
 COPY --from=build-stage --chown=jukebox /tmp/build/dist ./dist
 COPY docker-entrypoint.sh /docker-entrypoint.sh
+
+RUN chmod 0777 /root
 
 # Mark cache folder as docker volume
 VOLUME ["/app/cache", "/app/logs"]

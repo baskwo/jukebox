@@ -180,7 +180,8 @@ export class PlayCommand extends BaseCommand {
         let successMsg = this.client.lang.COMMAND_PLAY_YOUTUBE_PLAYLIST_SUCCESS(playlistTitle);
         const generateMessage = (msg: string, type: hexColorsType, footer?: string): MessageOptions => {
             const embed = createEmbed(type, msg)
-                .setThumbnail(playlist.videos[0].thumbnails.best!);
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+                .setThumbnail(playlist.videos.items[0].thumbnails.best!);
 
             if (footer) embed.setFooter({ text: footer, iconURL: images.info });
             return { embeds: [embed] };
@@ -200,7 +201,8 @@ export class PlayCommand extends BaseCommand {
             );
 
             // Add the first video first.
-            const firstVideo = await this.youtube.getVideo(playlist.videos[0].id);
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+            const firstVideo = await this.youtube.getVideo(playlist.videos.items[0].id);
             if (!firstVideo) {
                 await message.channel.send(
                     generateMessage(this.client.lang.COMMAND_PLAY_YOUTUBE_PLAYLIST_ADDING_FIRST_VIDEOS_ERR(playlistTitle), "error")
@@ -257,8 +259,9 @@ export class PlayCommand extends BaseCommand {
 
     private async loadYouTubePlaylistVideos(playlist: Playlist, message: Message, startIndex: number, currentId: string): Promise<VideoCompact[] | undefined> {
         try {
-            await playlist.next(0);
-            const { videos } = playlist;
+            await playlist.videos.next(0);
+            const videos = playlist.videos.items;
+            // eslint-disable-next-line @typescript-eslint/restrict-plus-operands
             if (startIndex === -1) startIndex = videos.findIndex(s => s.id === currentId) + 1;
             return videos.slice(startIndex, videos.length);
         } catch (e: any) {
@@ -270,12 +273,13 @@ export class PlayCommand extends BaseCommand {
     }
 
     private async createSearchPrompt(searchString: string, message: Message): Promise<LiveVideo | Video | "canceled" | undefined> {
-        const videos = await this.youtube.search(searchString, { type: "video" }) as unknown as VideoCompact[];
-        if (videos.length === 0) {
+        const result = await this.youtube.search(searchString, { type: "video" });
+        if (result.estimatedResults === 0) {
             await message.channel.send({ embeds: [createEmbed("warn", this.client.lang.COMMAND_PLAY_YOUTUBE_SEARCH_NO_RESULTS())] });
             return undefined;
         }
 
+        const videos = result.items;
         return this.selectNextVideo(videos, message);
     }
 

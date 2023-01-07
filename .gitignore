@@ -101,3 +101,5 @@ dist
 
 # YTDL Caches
 cache/**
+
+/.idea

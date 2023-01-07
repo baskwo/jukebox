@@ -5,7 +5,7 @@ import ffmpegStatic from "ffmpeg-static";
 import { ServerQueue } from "./ServerQueue";
 import execa from "execa";
 import { SnowflakeUtil } from "discord.js";
-import { YtFlags } from "youtube-dl-exec";
+import { YtFlags } from "./YtfFlags";
 import { TimeUtil } from "../utils/TimeUtil";
 
 export enum TrackType {
@@ -38,13 +38,14 @@ export class Track {
     // TODO: Recreate Resource Caching
     public createAudioResource(): Promise<{ resource: AudioResource<ITrackMetadata>; process: execa.ExecaChildProcess }> {
         return new Promise((resolve, reject) => {
-            const process = this.queue.client.ytdl.exec(this.metadata.url, this.ytdlFlags, { stdio: ["ignore", "pipe", "ignore"] });
+            const process = this.queue.client.ytdl.exec(this.metadata.url, this.ytdlFlags, { stdio: ["ignore", "pipe", "pipe"] });
             if (!process.stdout) {
                 reject(new Error("No stdout"));
                 return;
             }
             const stream = process.stdout;
             const onError = (err: any): void => {
+                console.error(err);
                 if (!process.killed) process.kill();
                 stream.resume();
                 const error = err as AudioPlayerError; // TODO: Why do we need to assign resource on this error anyway?
